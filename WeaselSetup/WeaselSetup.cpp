@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 #include "resource.h"
+#include "WeaselUtility.h"
 #include <thread>
 
 #include "InstallOptionsDlg.h"
@@ -27,17 +28,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance,
   hRes = _Module.Init(NULL, hInstance);
   ATLASSERT(SUCCEEDED(hRes));
 
-  LCID lcid = GetUserDefaultLCID();
-  LANGID langId;
-  if (lcid == 2052 || lcid == 3072 || lcid == 4100) {
-    langId = SetThreadUILanguage(
-        MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED));
-  } else if (lcid == 1028 || lcid == 3076 || lcid == 5124) {
-    langId = SetThreadUILanguage(
-        MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_TRADITIONAL));
-  } else {
-    langId = SetThreadUILanguage(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
-  }
+  LANGID langId = get_language_id();
+  SetThreadUILanguage(langId);
   SetThreadLocale(langId);
 
   int nRet = Run(lpstrCmdLine);
@@ -108,25 +100,15 @@ static int CustomInstall(bool installing) {
     if (0 != install(hant, silent, old_ime_support))
       return 1;
 
-  ret = RegCreateKeyEx(HKEY_CURRENT_USER, KEY, 0, NULL, 0, KEY_ALL_ACCESS, 0,
-                       &hKey, NULL);
-  if (FAILED(HRESULT_FROM_WIN32(ret))) {
-    MSG_ID_CAP(KEY, IDS_STR_INSTALL_FAILED, MB_ICONERROR | MB_OK);
-    return 1;
-  }
-
-  ret = RegSetValueEx(hKey, L"RimeUserDir", 0, REG_SZ,
-                      (const BYTE*)user_dir.c_str(),
-                      (user_dir.length() + 1) * sizeof(WCHAR));
+  ret = SetRegKeyValue(HKEY_CURRENT_USER, KEY, L"RimeUserDir", user_dir.c_str(),
+                       REG_SZ, false);
   if (FAILED(HRESULT_FROM_WIN32(ret))) {
     MSG_BY_IDS(IDS_STR_ERR_WRITE_USER_DIR, IDS_STR_INSTALL_FAILED,
                MB_ICONERROR | MB_OK);
     return 1;
   }
-
-  DWORD data = hant ? 1 : 0;
-  ret = RegSetValueEx(hKey, L"Hant", 0, REG_DWORD, (const BYTE*)&data,
-                      sizeof(DWORD));
+  ret = SetRegKeyValue(HKEY_CURRENT_USER, KEY, L"Hant", (hant ? 1 : 0),
+                       REG_DWORD, false);
   if (FAILED(HRESULT_FROM_WIN32(ret))) {
     MSG_BY_IDS(IDS_STR_ERR_WRITE_HANT, IDS_STR_INSTALL_FAILED,
                MB_ICONERROR | MB_OK);
@@ -158,6 +140,26 @@ static int Run(LPTSTR lpCmdLine) {
   bool uninstalling = !wcscmp(L"/u", lpCmdLine);
   if (uninstalling)
     return uninstall(silent);
+
+  if (!wcscmp(L"/ls", lpCmdLine)) {
+    return SetRegKeyValue(HKEY_CURRENT_USER, L"Software\\Rime\\weasel",
+                          L"Language", L"chs", REG_SZ);
+  } else if (!wcscmp(L"/lt", lpCmdLine)) {
+    return SetRegKeyValue(HKEY_CURRENT_USER, L"Software\\Rime\\weasel",
+                          L"Language", L"cht", REG_SZ);
+  } else if (!wcscmp(L"/le", lpCmdLine)) {
+    return SetRegKeyValue(HKEY_CURRENT_USER, L"Software\\Rime\\weasel",
+                          L"Language", L"eng", REG_SZ);
+  }
+
+  if (!wcscmp(L"/eu", lpCmdLine)) {
+    return SetRegKeyValue(HKEY_CURRENT_USER, L"Software\\Rime\\weasel\\Updates",
+                          L"CheckForUpdates", L"1", REG_SZ);
+  }
+  if (!wcscmp(L"/du", lpCmdLine)) {
+    return SetRegKeyValue(HKEY_CURRENT_USER, L"Software\\Rime\\weasel\\Updates",
+                          L"CheckForUpdates", L"0", REG_SZ);
+  }
 
   bool hans = !wcscmp(L"/s", lpCmdLine);
   if (hans)

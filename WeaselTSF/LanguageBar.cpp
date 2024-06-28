@@ -34,21 +34,6 @@ static void HMENU2ITfMenu(HMENU hMenu, ITfMenu* pTfMenu) {
   }
 }
 
-static LONG RegGetStringValue(HKEY key,
-                              LPCWSTR lpSubKey,
-                              LPCWSTR lpValue,
-                              std::wstring& value) {
-  TCHAR szValue[MAX_PATH];
-  DWORD dwBufLen = MAX_PATH;
-
-  LONG lRes = RegGetValue(key, lpSubKey, lpValue, RRF_RT_REG_SZ, NULL, szValue,
-                          &dwBufLen);
-  if (lRes == ERROR_SUCCESS) {
-    value = std::wstring(szValue);
-  }
-  return lRes;
-}
-
 static LPCWSTR GetWeaselRegName() {
   LPCWSTR WEASEL_REG_NAME_;
   if (is_wow64())
@@ -155,21 +140,8 @@ static LANGID GetActiveProfileLangId() {
   return profile.langid;
 }
 
-static LANGID GetUserDefaultLangId() {
-  LANGID langId;
-  LCID lcid = GetUserDefaultLCID();
-  if (lcid == 2052 || lcid == 3072 || lcid == 4100) {
-    langId = MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);
-  } else if (lcid == 1028 || lcid == 3076 || lcid == 5124) {
-    langId = MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_TRADITIONAL);
-  } else {
-    langId = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
-  }
-  return langId;
-}
-
 STDAPI CLangBarItemButton::GetTooltipString(BSTR* pbstrToolTip) {
-  LANGID langid = GetUserDefaultLangId();
+  LANGID langid = get_language_id();
   if (langid == TEXTSERVICE_LANGID_HANS) {
     *pbstrToolTip = SysAllocString(L"左键切换模式，右键打开菜单");
   } else if (langid == TEXTSERVICE_LANGID_HANT) {
@@ -196,7 +168,7 @@ STDAPI CLangBarItemButton::OnClick(TfLBIClick click,
     /* Open menu */
     HWND hwnd = _pTextService->_GetFocusedContextWindow();
     if (hwnd != NULL) {
-      LANGID langid = GetUserDefaultLangId();
+      LANGID langid = get_language_id();
       HMENU menu;
       if (langid == TEXTSERVICE_LANGID_HANS) {
         menu = LoadMenuW(g_hInst, MAKEINTRESOURCE(IDR_MENU_POPUP_HANS));
